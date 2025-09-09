@@ -7,39 +7,49 @@ const CameraPage = () => {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
+
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
 
-  // face-api.js 모델 로드
+  // 1️⃣ face-api.js 모델 로드
   useEffect(() => {
     const loadModels = async () => {
-      await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-      await faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models");
-      setModelsLoaded(true);
+      try {
+        console.log("모델 로딩 시작...");
+        await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models");
+        console.log("모델 로딩 완료 ✅");
+        setModelsLoaded(true);
+      } catch (err) {
+        console.error("모델 로딩 실패 ❌", err);
+      }
     };
     loadModels();
   }, []);
 
-  // 얼굴 실시간 표시
+  // 2️⃣ 실시간 얼굴 박스 표시
   useEffect(() => {
     let interval: number;
-    if (modelsLoaded && webcamRef.current) {
+    if (modelsLoaded && webcamRef.current?.video) {
       const video = webcamRef.current.video as HTMLVideoElement;
       interval = window.setInterval(async () => {
         if (!video || video.paused || video.ended) return;
-        const detections = await faceapi.detectAllFaces(
-          video,
-          new faceapi.TinyFaceDetectorOptions()
-        ).withFaceLandmarks(true);
+
+        const detections = await faceapi
+          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks(true);
 
         const canvas = canvasRef.current;
         if (!canvas) return;
+
         const displaySize = { width: video.videoWidth, height: video.videoHeight };
         faceapi.matchDimensions(canvas, displaySize);
+
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         const resizedDetections = faceapi.resizeResults(detections, displaySize);
         resizedDetections.forEach((detection) => {
           const { x, y, width, height } = detection.detection.box;
@@ -53,12 +63,12 @@ const CameraPage = () => {
     return () => clearInterval(interval);
   }, [modelsLoaded]);
 
+  // 3️⃣ 얼굴 인식 후 촬영
   const handleDetectFace = async () => {
-    if (!webcamRef.current || !modelsLoaded) return;
+    if (!webcamRef.current?.video || !modelsLoaded) return;
     setDetecting(true);
 
     const video = webcamRef.current.video as HTMLVideoElement;
-    if (!video) return;
 
     const detection = await faceapi.detectSingleFace(
       video,
@@ -76,6 +86,7 @@ const CameraPage = () => {
     setDetecting(false);
   };
 
+  // 4️⃣ 사진 촬영 및 ResultPage 이동
   const capture = () => {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
@@ -95,6 +106,7 @@ const CameraPage = () => {
 
       {modelsLoaded && (
         <>
+          {/* 카메라 영역 */}
           <div className="relative w-full max-w-md rounded-xl overflow-hidden shadow-2xl ring-4 ring-indigo-500">
             <Webcam
               ref={webcamRef}
@@ -106,6 +118,7 @@ const CameraPage = () => {
               ref={canvasRef}
               className="absolute top-0 left-0 w-full h-full scale-x-[-1]"
             />
+
             {faceDetected && (
               <div className="absolute top-4 right-4 bg-green-500 px-3 py-1 rounded-full shadow-lg animate-pulse font-semibold">
                 얼굴 인식 완료
@@ -113,6 +126,7 @@ const CameraPage = () => {
             )}
           </div>
 
+          {/* 얼굴 인식 버튼 */}
           <button
             onClick={handleDetectFace}
             disabled={detecting}
