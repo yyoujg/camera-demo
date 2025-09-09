@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import CameraPage from "./components/CameraPage";
 import ResultPage from "./components/ResultPage";
+import "./App.css";
 
-export default function App() {
+const App = () => {
   return (
     <BrowserRouter>
       <Routes>
@@ -11,4 +12,6 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   );
-}
+};
+
+export default App;
